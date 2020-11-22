@@ -12,11 +12,15 @@
 #pragma region global_data
 constexpr int Width = WINCX;
 constexpr int Height = WINCY;
-ID3DXMesh* SourceMesh = nullptr;
-ID3DXPMesh* PMesh = nullptr;
 
-std::vector<D3DMATERIAL9> Mtrls{ 0 };
-std::vector<IDirect3DTexture9*> Textures{ 0 };
+ID3DXMesh* Mesh = 0;
+std::vector<D3DMATERIAL9>       Mtrls(0);
+std::vector<IDirect3DTexture9*> Textures(0);
+
+ID3DXMesh* SphereMesh = 0;
+ID3DXMesh* BoxMesh = 0;
+
+bool RenderBoundingSphere = false;
 #pragma endregion global_data
 
 void CStage::Initialize() & noexcept
@@ -25,9 +29,12 @@ void CStage::Initialize() & noexcept
 
 	HRESULT hr = 0;
 
-	ID3DXBuffer* adjBuffer = nullptr;
-	ID3DXBuffer* mtrlBuffer = nullptr;
-	DWORD numMtrls = 0;
+	//
+	// Load the XFile data.
+	//
+	ID3DXBuffer* adjBuffer = 0;
+	ID3DXBuffer* mtrlBuffer = 0;
+	DWORD        numMtrls = 0;
 
 	hr = D3DXLoadMeshFromX(
 		L"bigship1.x",
@@ -37,81 +44,112 @@ void CStage::Initialize() & noexcept
 		&mtrlBuffer,
 		0,
 		&numMtrls,
-		&SourceMesh);
+		&Mesh);
 
-	if(FAILED(hr))
+	if (FAILED(hr))
 	{
-		::MessageBox(g_hWnd, L"D3DXLoadMeshFromX() - FAILED", 0, 0);
+		::MessageBox(0, L"D3DXLoadMeshFromX() - FAILED", 0, 0);
+		
 	}
 
-	if(mtrlBuffer!=nullptr && numMtrls!=0)
+	//
+	// Extract the materials, load textures.
+	//
+
+	if (mtrlBuffer != 0 && numMtrls != 0)
 	{
 		D3DXMATERIAL* mtrls = (D3DXMATERIAL*)mtrlBuffer->GetBufferPointer();
 
-		for(int i=0;i<numMtrls;++i)
+		for (int i = 0; i < numMtrls; i++)
 		{
+			// the MatD3D property doesn't have an ambient value set
+			// when its loaded, so set it now:
 			mtrls[i].MatD3D.Ambient = mtrls[i].MatD3D.Diffuse;
 
+			// save the ith material
 			Mtrls.push_back(mtrls[i].MatD3D);
 
-			if(mtrls[i].pTextureFilename!=nullptr)
+			// check if the ith material has an associative texture
+			if (mtrls[i].pTextureFilename != 0)
 			{
+				// yes, load the texture for the ith subset
 				IDirect3DTexture9* tex = 0;
 				D3DXCreateTextureFromFileA(
 					Device,
 					mtrls[i].pTextureFilename,
 					&tex);
 
+				// save the loaded texture
 				Textures.push_back(tex);
 			}
 			else
 			{
-				Textures.push_back(nullptr);
+				// no texture for the ith subset
+				Textures.push_back(0);
 			}
 		}
-
-		d3d::Release(mtrlBuffer);
 	}
+	d3d::Release<ID3DXBuffer*>(mtrlBuffer); // done w/ buffer
 
-	hr = SourceMesh->OptimizeInplace(
+	//
+	// Optimize the mesh.
+	//
+
+	hr = Mesh->OptimizeInplace(
 		D3DXMESHOPT_ATTRSORT |
 		D3DXMESHOPT_COMPACT |
 		D3DXMESHOPT_VERTEXCACHE,
 		(DWORD*)adjBuffer->GetBufferPointer(),
-		(DWORD*)adjBuffer->GetBufferPointer(), // new adjacency info
-		0, 0);
+		0, 0, 0);
 
+	d3d::Release<ID3DXBuffer*>(adjBuffer); // done w/ buffer
+
+	if (FAILED(hr))
+	{
+		::MessageBox(0, L"OptimizeInplace() - FAILED", 0, 0);
+	}
+
+	//
+	// Compute Bounding Sphere and Bounding Box.
+	//
+
+	std::pair<d3d::BoundingSphere ,bool > boundingSphere;
+	std::pair<d3d::BoundingBox    ,bool> boundingBox;
+
+	boundingSphere=d3d::BoundingSphere::ComputeBoundingSphere(Mesh);
+	boundingBox = d3d::BoundingBox::ComputeBoundingBox(Mesh);
 	
-	if(FAILED(hr))
-	{
-		::MessageBox(0, L"OptInplace FAIL", 0, 0);
-	}
+	
+	D3DXCreateSphere(
+		Device,
+		boundingSphere.first._radius,
+		20,
+		20,
+		&SphereMesh,
+		0);
 
-	hr = D3DXGeneratePMesh(SourceMesh,
-		(DWORD*)adjBuffer->GetBufferPointer(),
-		0, 0, 1, D3DXMESHSIMP_FACE, &PMesh);
+	D3DXCreateBox(
+		Device,
+		boundingBox.first._max.x - boundingBox.first._min.x,
+		boundingBox.first._max.y - boundingBox.first._min.y,
+		boundingBox.first._max.z - boundingBox.first._min.z,
+		&BoxMesh,
+		0);
 
+	//
+	// Set texture filters.
+	//
 
-	d3d::Release(SourceMesh);
-	d3d::Release(adjBuffer);
+	Device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+	Device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+	Device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_POINT);
 
-	if(FAILED(hr))
-	{
-		::MessageBox(0, L"D3DXGeneratePMesh() - FAILED", 0, 0);
-	}
+	// 
+	// Set Lights.
+	//
 
-	DWORD maxFaces = PMesh->GetMaxFaces();
-	PMesh->SetNumFaces(maxFaces);
-
-	Device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_ANISOTROPIC);
-	Device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-	D3DCAPS9 _Cap;
-	Device->GetDeviceCaps(&_Cap);
-	Device->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, _Cap.MaxAnisotropy);
-	Device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
-
-	_vector dir{ 1,-1,1 };
-	D3DXCOLOR col{ 1,1,1,1 };
+	D3DXVECTOR3 dir(1.0f, -1.0f, 1.0f);
+	D3DXCOLOR col(1.0f, 1.0f, 1.0f, 1.0f);
 	D3DLIGHT9 light = d3d::InitDirectionalLight(&dir, &col);
 
 	Device->SetLight(0, &light);
@@ -119,22 +157,34 @@ void CStage::Initialize() & noexcept
 	Device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
 	Device->SetRenderState(D3DRS_SPECULARENABLE, true);
 
-	_vector pos(-8.0f, 4.0f, -12.0f);
-	_vector target{ 0,0,0 };
-	_vector up{ 0 , 1 ,   0 };
+	//
+	// Set camera.
+	//
+
+	D3DXVECTOR3 pos(4.0f, 12.0f, -20.0f);
+	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f);
+	D3DXVECTOR3 up(0.0f, 1.0f, 0.0f);
 
 	D3DXMATRIX V;
-	D3DXMatrixLookAtLH(&V,
-		&pos, &target, &up);
+	D3DXMatrixLookAtLH(
+		&V,
+		&pos,
+		&target,
+		&up);
 
 	Device->SetTransform(D3DTS_VIEW, &V);
 
+	//
+	// Set projection matrix.
+	//
+
 	D3DXMATRIX proj;
 	D3DXMatrixPerspectiveFovLH(
-		&proj, D3DX_PI * 0.5f,
-		(float)WINCX / (float)WINCY,
-		1.f, 1000.f);
-
+		&proj,
+		D3DX_PI * 0.5f, // 90 - degree
+		(float)Width / (float)Height,
+		1.0f,
+		1000.0f);
 	Device->SetTransform(D3DTS_PROJECTION, &proj);
 }
 
@@ -157,37 +207,62 @@ void CStage::Render()&
 	
 	if(Device )
 	{
-		int numFaces = PMesh->GetNumFaces();
+		if (Device)
+		{
+			//
+			// Update: Rotate the mesh.
+			//
+
+			static float y = 0.0f;
+			D3DXMATRIX yRot;
+			D3DXMatrixRotationY(&yRot, y);
+			y += timeDelta;
+
+			if (y >= 6.28f)
+				y = 0.0f;
+
+			D3DXMATRIX World = yRot;
+
+			Device->SetTransform(D3DTS_WORLD, &World);
+
+			//
+			// Render
+			//
+
+			Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xffffffff, 1.0f, 0);
+			Device->BeginScene();
+
+			// draw the mesh
+			for (int i = 0; i < Mtrls.size(); i++)
+			{
+				Device->SetMaterial(&Mtrls[i]);
+				Device->SetTexture(0, Textures[i]);
+				Mesh->DrawSubset(i);
+			}
+
+			//
+			// Draw bounding volume in blue and at 10% opacity
+			D3DMATERIAL9 blue = d3d::BLUE_MTRL;
+			blue.Diffuse.a = 0.10f; // 10% opacity
+
+			Device->SetMaterial(&blue);
+			Device->SetTexture(0, 0); // disable texture
+
+			Device->SetRenderState(D3DRS_ALPHABLENDENABLE, true);
+			Device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
+			Device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+
+			if (RenderBoundingSphere)
+				SphereMesh->DrawSubset(0);
+			else
+				BoxMesh->DrawSubset(0);
+
+			Device->SetRenderState(D3DRS_ALPHABLENDENABLE, false);
+
+			Device->EndScene();
+			Device->Present(0, 0, 0, 0);
+		}
 		
-		if(::GetAsyncKeyState('A')& 0x8000f)
-		{
-			PMesh->SetNumFaces(numFaces + 1);
-			if (PMesh->GetNumFaces() == numFaces)
-				PMesh->SetNumFaces(numFaces + 2);
-		}
-
-		if(::GetAsyncKeyState('S') & 0x8000f)
-		{
-			PMesh->SetNumFaces(numFaces - 1);
-		}
-
-		Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xffffffff, 1.f, 0);
-		Device->BeginScene();
-
-		for(int i=0;i<Mtrls.size();++i)
-		{
-			Device->SetMaterial(&Mtrls[i]);
-			Device->SetTexture(0, Textures[i]);
-			PMesh->DrawSubset(i);
-
-			Device->SetMaterial(&d3d::YELLOW_MTRL);
-			Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
-			PMesh->DrawSubset(i);
-			Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
-		}
-
-		Device->EndScene();
-		Device->Present(0, 0, g_hWnd, 0);
 	}
 }
 
@@ -242,10 +317,6 @@ void CStage::Free()
 {
 	CScene::Free();
 
-	d3d::Release(SourceMesh);
-
-	for(int i=0;i<Textures.size();++i)
-	{
-		d3d::Release(Textures[i]); 
-	}
+	
+	
 }

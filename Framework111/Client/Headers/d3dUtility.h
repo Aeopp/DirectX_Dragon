@@ -101,6 +101,8 @@ namespace d3d
 	{
 		explicit BoundingBox();
 
+		static std::pair<BoundingBox, bool> ComputeBoundingBox(ID3DXMesh* Mesh);
+
 		bool isPointInside(_vector& p);
 
 		_vector _min {0,0,0};
@@ -113,62 +115,13 @@ namespace d3d
 	{
 		BoundingSphere();
 
-		static bool ComputeBoundingSphere(ID3DXMesh* mesh)
-		{
-			HRESULT hr = 0;
-			_vector* v = 0;
-			BoundingSphere sphere;
-			mesh->LockVertexBuffer(0, (void**)&v);
+		static std::pair<BoundingSphere, bool> ComputeBoundingSphere(ID3DXMesh* mesh);
 
-			hr = D3DXComputeBoundingSphere(
-				(_vector*)v,
-				mesh->GetNumVertices(),
-				D3DXGetFVFVertexSize(mesh->GetFVF()),
-				&sphere._center,
-				&sphere._radius);
-
-			mesh->UnlockVertexBuffer();
-
-			if (FAILED(hr))
-				return false;
-
-			return true; 
-		}
-		
 		_vector _center{ 0,0,0 } ;
 		float _radius { 0 } ;
 	};
  }
 
- d3d::BoundingBox::BoundingBox()
- {
-	 _min.x = d3d::Infinity;
-	 _min.y = d3d::Infinity;
-	 _min.z = d3d::Infinity;
-
-	 _max.x = -d3d::Infinity;
-	 _max.y = -d3d::Infinity;
-	 _max.z = -d3d::Infinity;
-	
- }
-
- bool d3d::BoundingBox::isPointInside(_vector& p)
- {
-	 if (p.x >= _min.x && p.y >= _min.y && p.z >= _min.z &&
-		 p.x <= _max.x && p.y <= _max.y && p.z <= _max.z)
-	 {
-		 return true;
-	 }
-	 else
-	 {
-		 return false;
-	 }
- }
-
- d3d::BoundingSphere::BoundingSphere()
- {
-	 _radius = 0.0f;
- }
 
 
 #endif // __d3dUtilityH__

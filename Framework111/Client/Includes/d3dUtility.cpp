@@ -236,6 +236,88 @@ D3DMATERIAL9 d3d::InitMtrl(D3DXCOLOR a, D3DXCOLOR d, D3DXCOLOR s, D3DXCOLOR e, f
 }
 
 
+d3d::BoundingBox::BoundingBox()
+{
+	_min.x = d3d::Infinity;
+	_min.y = d3d::Infinity;
+	_min.z = d3d::Infinity;
+
+	_max.x = -d3d::Infinity;
+	_max.y = -d3d::Infinity;
+	_max.z = -d3d::Infinity;
+
+}
+
+bool d3d::BoundingBox::isPointInside(_vector& p)
+{
+	if (p.x >= _min.x && p.y >= _min.y && p.z >= _min.z &&
+		p.x <= _max.x && p.y <= _max.y && p.z <= _max.z)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+d3d::BoundingSphere::BoundingSphere()
+{
+	_radius = 0.0f;
+}
+
+
+
+std::pair<d3d::BoundingBox, bool> d3d::BoundingBox::ComputeBoundingBox(ID3DXMesh* Mesh)
+{
+	HRESULT hr = 0;
+	BYTE* v = 0;
+	Mesh->LockVertexBuffer(0, (void**)&v);
+
+	BoundingBox box;
+
+	hr = D3DXComputeBoundingBox(
+		(_vector*)v,
+		Mesh->GetNumVertices(),
+		D3DXGetFVFVertexSize(Mesh->GetFVF()),
+		&box._min,
+		&box._max);
+
+	Mesh->UnlockVertexBuffer();
+
+	if (FAILED(hr))
+	{
+		return  { BoundingBox {} ,false };
+	}
+
+	return  { box,true };
+}
+
+std::pair<d3d::BoundingSphere, bool> d3d::BoundingSphere::ComputeBoundingSphere(ID3DXMesh* mesh)
+{
+	HRESULT hr = 0;
+	_vector* v = 0;
+	BoundingSphere sphere;
+	mesh->LockVertexBuffer(0, (void**)&v);
+
+	hr = D3DXComputeBoundingSphere(
+		(_vector*)v,
+		mesh->GetNumVertices(),
+		D3DXGetFVFVertexSize(mesh->GetFVF()),
+		&sphere._center,
+		&sphere._radius);
+
+	mesh->UnlockVertexBuffer();
+
+	if (FAILED(hr))
+	{
+		return { BoundingSphere{}, false };
+	}
+
+	return { sphere, false };
+}
+
+
 
 
 
