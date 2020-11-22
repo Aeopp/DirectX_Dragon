@@ -161,7 +161,11 @@
     <ClInclude Include="..\Headers\Client_Define.h" />
     <ClInclude Include="..\Headers\Client_Enum.h" />
     <ClInclude Include="..\Headers\Client_Extern.h" />
+    <ClInclude Include="..\Headers\d3dfont.h" />
+    <ClInclude Include="..\Headers\d3dutil.h" />
     <ClInclude Include="..\Headers\d3dUtility.h" />
+    <ClInclude Include="..\Headers\dxutil.h" />
+    <ClInclude Include="..\Headers\fps.h" />
     <ClInclude Include="..\Headers\Logo.h" />
     <ClInclude Include="..\Headers\MainApp.h" />
     <ClInclude Include="..\Headers\Stage.h" />
@@ -170,8 +174,13 @@
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="Terrain.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\Codes\d3dfont.cpp" />
+    <ClCompile Include="..\Codes\d3dutil.cpp" />
+    <ClCompile Include="..\Codes\dxutil.cpp" />
+    <ClCompile Include="..\Codes\fps.cpp" />
     <ClCompile Include="..\Codes\Logo.cpp" />
     <ClCompile Include="..\Codes\MainApp.cpp" />
     <ClCompile Include="..\Codes\Stage.cpp" />
@@ -184,6 +193,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Terrain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Client.rc" />

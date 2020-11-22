@@ -6,6 +6,8 @@
 #include <array>
 
 #include "Camera.h"
+#include "fps.h"
+#include "Terrain.h"
 
 #pragma region Declare
 
@@ -14,7 +16,9 @@
 #pragma region global_data
 constexpr int Width = WINCX;
 constexpr int Height = WINCY;
-Camera TheCamera;
+Terrain* TheTerrain = 0;
+Camera   TheCamera;
+FPSCounter* FPS = 0;
 
 #pragma endregion global_data
 
@@ -22,7 +26,25 @@ void CStage::Initialize() & noexcept
 {
 	auto * Device = m_pDevice;
 
-	d3d::DrawBasicScene(Device, 0.0f);
+	//
+	// Create the terrain.
+	//
+
+	D3DXVECTOR3 lightDirection(0.0f, 1.0f, 0.0f);
+	TheTerrain = new Terrain(Device, L"coastMountain64.raw", 64, 64, 10, 2.f);
+	TheTerrain->genTexture(&lightDirection);
+
+
+
+	FPS = new FPSCounter(Device);
+
+	//
+	// Set texture filters.
+	//
+
+	Device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+	Device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+	Device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
 
 	//
 	// Set projection matrix.
@@ -36,6 +58,7 @@ void CStage::Initialize() & noexcept
 		1.0f,
 		1000.0f);
 	Device->SetTransform(D3DTS_PROJECTION, &proj);
+
 }
 
 
@@ -43,64 +66,62 @@ void CStage::Render()&
 {
 	auto* Device = m_pDevice;
 
-	constexpr double timeDelta = 1.f / 500.f;
+	constexpr double timeDelta = 1.f / 5000.f;
+	static bool f = false;
 	
 	if (Device)
 	{
-		//
-		// Update: Update the camera.
-		//
-
-		if (::GetAsyncKeyState('W') & 0x8000f)
-			TheCamera.MoveForward(4.0f , timeDelta);
-
-		if (::GetAsyncKeyState('S') & 0x8000f)
-			TheCamera.MoveForward(-4.0f, timeDelta);
-
-		if (::GetAsyncKeyState('A') & 0x8000f)
-			TheCamera.MoveRight(-4.0f, timeDelta);
-
-		if (::GetAsyncKeyState('D') & 0x8000f)
-			TheCamera.MoveRight(4.0f, timeDelta);
-
-		if (::GetAsyncKeyState('R') & 0x8000f)
-			TheCamera.MoveUp(4.0f, timeDelta);
-
-		if (::GetAsyncKeyState('F') & 0x8000f)
-			TheCamera.MoveUp(-4.0f, timeDelta);
-
 		if (::GetAsyncKeyState(VK_UP) & 0x8000f)
-			TheCamera.Pitch(1.0f, timeDelta);
+			TheCamera.MoveForward(100.0f, timeDelta);
 
 		if (::GetAsyncKeyState(VK_DOWN) & 0x8000f)
-			TheCamera.Pitch(-1.0f, timeDelta);
+			TheCamera.MoveForward(-100.0f , timeDelta);
 
 		if (::GetAsyncKeyState(VK_LEFT) & 0x8000f)
 			TheCamera.Yaw(-1.0f, timeDelta);
 
 		if (::GetAsyncKeyState(VK_RIGHT) & 0x8000f)
-			TheCamera.Yaw(1.0f, timeDelta);
+			TheCamera.Yaw(1.0f,timeDelta);
 
 		if (::GetAsyncKeyState('N') & 0x8000f)
-			TheCamera.Roll(1.0f, timeDelta);
+			TheCamera.MoveRight(-100.0f, timeDelta);
 
 		if (::GetAsyncKeyState('M') & 0x8000f)
-			TheCamera.Roll(-1.0f, timeDelta);
+			TheCamera.MoveRight(100.0f, timeDelta);
 
-		// Update the view matrix representing the cameras 
-		// new position/orientation.
+		if (::GetAsyncKeyState('W') & 0x8000f)
+			TheCamera.Pitch(1.0f , timeDelta);
+
+		if (::GetAsyncKeyState('S') & 0x8000f)
+			TheCamera.Pitch(-1.0f , timeDelta);
+
+		if (::GetAsyncKeyState(VK_SPACE) & 0x8000f)
+			f = !f;
+
+		D3DXVECTOR3 pos =TheCamera.GetLocation();
+		float height = TheTerrain->getHeight(pos.x, pos.z);
+		pos.y = height + 5.0f; // add height because we're standing up
+		TheCamera.SetLocation(pos);
+
 		
 		D3DXMATRIX V = TheCamera.GetViewMatrix();
 		Device->SetTransform(D3DTS_VIEW, &V);
 
 		//
-		// Render
+		// Draw the scene:
 		//
 
-		Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0);
+		Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xff000000, 1.0f, 0);
 		Device->BeginScene();
 
-		d3d::DrawBasicScene(Device, 1.0f);
+		D3DXMATRIX I;
+		D3DXMatrixIdentity(&I);
+
+		if (TheTerrain)
+			TheTerrain->draw(&I, f);
+
+		if (FPS)
+			FPS->render(0xffffffff, timeDelta);
 
 		Device->EndScene();
 		Device->Present(0, 0, 0, 0);
@@ -158,5 +179,5 @@ void CStage::Free()
 {
 	CScene::Free();
 
-	d3d::DrawBasicScene(0, 0.f);
+	
 }

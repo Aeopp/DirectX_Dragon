@@ -26,7 +26,7 @@ public:
 	void MoveUp(const float Speed,const float DeltaTime);
 	void MoveRight(const float Speed,const float DeltaTime);
 private:
-	EType _Type = EType::FlyingObject;
+	EType _Type = EType::LANDOBJECT;
 	_vector _Up{ 0,1,0 }; 
 	_vector _Look{ 0,0,1 };
 	_vector _Right{ 1,0,0 };
