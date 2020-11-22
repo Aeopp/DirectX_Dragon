@@ -19,6 +19,9 @@
     <Filter Include="01.Scene\01.Stage">
       <UniqueIdentifier>{c234953c-5253-40ea-b6ef-3e666a6a61d5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Custom">
+      <UniqueIdentifier>{7bec04ae-95a7-482c-88ae-8f1fcc773ecc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Client.h">
@@ -54,6 +57,7 @@
     <ClInclude Include="..\Headers\d3dUtility.h">
       <Filter>99.Headers</Filter>
     </ClInclude>
+    <ClInclude Include="Camera.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Client.cpp">
@@ -74,6 +78,7 @@
     <ClCompile Include="d3dUtility.cpp">
       <Filter>98.Default</Filter>
     </ClCompile>
+    <ClCompile Include="Camera.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Client.ico">

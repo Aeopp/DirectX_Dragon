@@ -236,6 +236,114 @@ D3DMATERIAL9 d3d::InitMtrl(D3DXCOLOR a, D3DXCOLOR d, D3DXCOLOR s, D3DXCOLOR e, f
 }
 
 
+bool d3d::DrawBasicScene(IDirect3DDevice9* device, float scale)
+{
+	static IDirect3DVertexBuffer9* floor = 0;
+	static IDirect3DTexture9* tex = 0;
+	static ID3DXMesh* pillar = 0;
+
+	HRESULT hr = 0;
+
+	if (device == 0)
+	{
+		if (floor && tex && pillar)
+		{
+			// they already exist, destroy them
+			d3d::Release<IDirect3DVertexBuffer9*>(floor);
+			d3d::Release<IDirect3DTexture9*>(tex);
+			d3d::Release<ID3DXMesh*>(pillar);
+		}
+	}
+	else if (!floor && !tex && !pillar)
+	{
+		// they don't exist, create them
+		device->CreateVertexBuffer(
+			6 * sizeof(d3d::Vertex),
+			0,
+			d3d::Vertex::FVF,
+			D3DPOOL_MANAGED,
+			&floor,
+			0);
+
+		Vertex* v = 0;
+		floor->Lock(0, 0, (void**)&v, 0);
+
+		v[0] = Vertex(-20.0f, -2.5f, -20.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f);
+		v[1] = Vertex(-20.0f, -2.5f, 20.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f);
+		v[2] = Vertex(20.0f, -2.5f, 20.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
+
+		v[3] = Vertex(-20.0f, -2.5f, -20.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f);
+		v[4] = Vertex(20.0f, -2.5f, 20.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f);
+		v[5] = Vertex(20.0f, -2.5f, -20.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f);
+
+		floor->Unlock();
+
+		D3DXCreateCylinder(device, 0.5f, 0.5f, 5.0f, 20, 20, &pillar, 0);
+
+		D3DXCreateTextureFromFile(
+			device,
+			L"desert.bmp",
+			&tex);
+	}
+	else
+	{
+		//
+		// Pre-Render Setup
+		//
+		device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+		device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+		device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_POINT);
+
+		D3DXVECTOR3 dir(0.707f, -0.707f, 0.707f);
+		D3DXCOLOR col(1.0f, 1.0f, 1.0f, 1.0f);
+		D3DLIGHT9 light = d3d::InitDirectionalLight(&dir, &col);
+
+		device->SetLight(0, &light);
+		device->LightEnable(0, true);
+		device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
+		device->SetRenderState(D3DRS_SPECULARENABLE, true);
+
+		//
+		// Render
+		//
+
+		D3DXMATRIX T, R, P, S;
+
+		D3DXMatrixScaling(&S, scale, scale, scale);
+
+		// used to rotate cylinders to be parallel with world's y-axis
+		D3DXMatrixRotationX(&R, -D3DX_PI * 0.5f);
+
+		// draw floor
+		D3DXMatrixIdentity(&T);
+		T = T * S;
+		device->SetTransform(D3DTS_WORLD, &T);
+		device->SetMaterial(&d3d::WHITE_MTRL);
+		device->SetTexture(0, tex);
+		device->SetStreamSource(0, floor, 0, sizeof(Vertex));
+		device->SetFVF(Vertex::FVF);
+		device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 2);
+
+		// draw pillars
+		device->SetMaterial(&d3d::BLUE_MTRL);
+		device->SetTexture(0, 0);
+		for (int i = 0; i < 5; i++)
+		{
+			D3DXMatrixTranslation(&T, -5.0f, 0.0f, -15.0f + (i * 7.5f));
+			P = R * T * S;
+			device->SetTransform(D3DTS_WORLD, &P);
+			pillar->DrawSubset(0);
+
+			D3DXMatrixTranslation(&T, 5.0f, 0.0f, -15.0f + (i * 7.5f));
+			P = R * T * S;
+			device->SetTransform(D3DTS_WORLD, &P);
+			pillar->DrawSubset(0);
+		}
+	}
+	return true;
+	
+}
+
 d3d::BoundingBox::BoundingBox()
 {
 	_min.x = d3d::Infinity;
@@ -318,6 +426,5 @@ std::pair<d3d::BoundingSphere, bool> d3d::BoundingSphere::ComputeBoundingSphere(
 }
 
 
-
-
+const DWORD d3d::Vertex::FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1;
 

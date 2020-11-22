@@ -5,6 +5,8 @@
 #include <fstream>
 #include <array>
 
+#include "Camera.h"
+
 #pragma region Declare
 
 #pragma endregion Declare
@@ -12,167 +14,15 @@
 #pragma region global_data
 constexpr int Width = WINCX;
 constexpr int Height = WINCY;
+Camera TheCamera;
 
-ID3DXMesh* Mesh = 0;
-std::vector<D3DMATERIAL9>       Mtrls(0);
-std::vector<IDirect3DTexture9*> Textures(0);
-
-ID3DXMesh* SphereMesh = 0;
-ID3DXMesh* BoxMesh = 0;
-
-bool RenderBoundingSphere = false;
 #pragma endregion global_data
 
 void CStage::Initialize() & noexcept
 {
 	auto * Device = m_pDevice;
 
-	HRESULT hr = 0;
-
-	//
-	// Load the XFile data.
-	//
-	ID3DXBuffer* adjBuffer = 0;
-	ID3DXBuffer* mtrlBuffer = 0;
-	DWORD        numMtrls = 0;
-
-	hr = D3DXLoadMeshFromX(
-		L"bigship1.x",
-		D3DXMESH_MANAGED,
-		Device,
-		&adjBuffer,
-		&mtrlBuffer,
-		0,
-		&numMtrls,
-		&Mesh);
-
-	if (FAILED(hr))
-	{
-		::MessageBox(0, L"D3DXLoadMeshFromX() - FAILED", 0, 0);
-		
-	}
-
-	//
-	// Extract the materials, load textures.
-	//
-
-	if (mtrlBuffer != 0 && numMtrls != 0)
-	{
-		D3DXMATERIAL* mtrls = (D3DXMATERIAL*)mtrlBuffer->GetBufferPointer();
-
-		for (int i = 0; i < numMtrls; i++)
-		{
-			// the MatD3D property doesn't have an ambient value set
-			// when its loaded, so set it now:
-			mtrls[i].MatD3D.Ambient = mtrls[i].MatD3D.Diffuse;
-
-			// save the ith material
-			Mtrls.push_back(mtrls[i].MatD3D);
-
-			// check if the ith material has an associative texture
-			if (mtrls[i].pTextureFilename != 0)
-			{
-				// yes, load the texture for the ith subset
-				IDirect3DTexture9* tex = 0;
-				D3DXCreateTextureFromFileA(
-					Device,
-					mtrls[i].pTextureFilename,
-					&tex);
-
-				// save the loaded texture
-				Textures.push_back(tex);
-			}
-			else
-			{
-				// no texture for the ith subset
-				Textures.push_back(0);
-			}
-		}
-	}
-	d3d::Release<ID3DXBuffer*>(mtrlBuffer); // done w/ buffer
-
-	//
-	// Optimize the mesh.
-	//
-
-	hr = Mesh->OptimizeInplace(
-		D3DXMESHOPT_ATTRSORT |
-		D3DXMESHOPT_COMPACT |
-		D3DXMESHOPT_VERTEXCACHE,
-		(DWORD*)adjBuffer->GetBufferPointer(),
-		0, 0, 0);
-
-	d3d::Release<ID3DXBuffer*>(adjBuffer); // done w/ buffer
-
-	if (FAILED(hr))
-	{
-		::MessageBox(0, L"OptimizeInplace() - FAILED", 0, 0);
-	}
-
-	//
-	// Compute Bounding Sphere and Bounding Box.
-	//
-
-	std::pair<d3d::BoundingSphere ,bool > boundingSphere;
-	std::pair<d3d::BoundingBox    ,bool> boundingBox;
-
-	boundingSphere=d3d::BoundingSphere::ComputeBoundingSphere(Mesh);
-	boundingBox = d3d::BoundingBox::ComputeBoundingBox(Mesh);
-	
-	
-	D3DXCreateSphere(
-		Device,
-		boundingSphere.first._radius,
-		20,
-		20,
-		&SphereMesh,
-		0);
-
-	D3DXCreateBox(
-		Device,
-		boundingBox.first._max.x - boundingBox.first._min.x,
-		boundingBox.first._max.y - boundingBox.first._min.y,
-		boundingBox.first._max.z - boundingBox.first._min.z,
-		&BoxMesh,
-		0);
-
-	//
-	// Set texture filters.
-	//
-
-	Device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-	Device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-	Device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_POINT);
-
-	// 
-	// Set Lights.
-	//
-
-	D3DXVECTOR3 dir(1.0f, -1.0f, 1.0f);
-	D3DXCOLOR col(1.0f, 1.0f, 1.0f, 1.0f);
-	D3DLIGHT9 light = d3d::InitDirectionalLight(&dir, &col);
-
-	Device->SetLight(0, &light);
-	Device->LightEnable(0, true);
-	Device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
-	Device->SetRenderState(D3DRS_SPECULARENABLE, true);
-
-	//
-	// Set camera.
-	//
-
-	D3DXVECTOR3 pos(4.0f, 12.0f, -20.0f);
-	D3DXVECTOR3 target(0.0f, 0.0f, 0.0f);
-	D3DXVECTOR3 up(0.0f, 1.0f, 0.0f);
-
-	D3DXMATRIX V;
-	D3DXMatrixLookAtLH(
-		&V,
-		&pos,
-		&target,
-		&up);
-
-	Device->SetTransform(D3DTS_VIEW, &V);
+	d3d::DrawBasicScene(Device, 0.0f);
 
 	//
 	// Set projection matrix.
@@ -181,88 +31,79 @@ void CStage::Initialize() & noexcept
 	D3DXMATRIX proj;
 	D3DXMatrixPerspectiveFovLH(
 		&proj,
-		D3DX_PI * 0.5f, // 90 - degree
+		D3DX_PI * 0.25f, // 45 - degree
 		(float)Width / (float)Height,
 		1.0f,
 		1000.0f);
 	Device->SetTransform(D3DTS_PROJECTION, &proj);
 }
 
-static void RenderScene(IDirect3DDevice9* Device)
-{
-	
-	
-};
-static void RenderShadow(IDirect3DDevice9* Device)
-{
-	
-};
 
 void CStage::Render()&
 {
 	auto* Device = m_pDevice;
 
-	constexpr double timeDelta = 1.f / 1000.f;
-	static float radius = 20.f;
+	constexpr double timeDelta = 1.f / 500.f;
 	
-	if(Device )
+	if (Device)
 	{
-		if (Device)
-		{
-			//
-			// Update: Rotate the mesh.
-			//
+		//
+		// Update: Update the camera.
+		//
 
-			static float y = 0.0f;
-			D3DXMATRIX yRot;
-			D3DXMatrixRotationY(&yRot, y);
-			y += timeDelta;
+		if (::GetAsyncKeyState('W') & 0x8000f)
+			TheCamera.MoveForward(4.0f , timeDelta);
 
-			if (y >= 6.28f)
-				y = 0.0f;
+		if (::GetAsyncKeyState('S') & 0x8000f)
+			TheCamera.MoveForward(-4.0f, timeDelta);
 
-			D3DXMATRIX World = yRot;
+		if (::GetAsyncKeyState('A') & 0x8000f)
+			TheCamera.MoveRight(-4.0f, timeDelta);
 
-			Device->SetTransform(D3DTS_WORLD, &World);
+		if (::GetAsyncKeyState('D') & 0x8000f)
+			TheCamera.MoveRight(4.0f, timeDelta);
 
-			//
-			// Render
-			//
+		if (::GetAsyncKeyState('R') & 0x8000f)
+			TheCamera.MoveUp(4.0f, timeDelta);
 
-			Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0xffffffff, 1.0f, 0);
-			Device->BeginScene();
+		if (::GetAsyncKeyState('F') & 0x8000f)
+			TheCamera.MoveUp(-4.0f, timeDelta);
 
-			// draw the mesh
-			for (int i = 0; i < Mtrls.size(); i++)
-			{
-				Device->SetMaterial(&Mtrls[i]);
-				Device->SetTexture(0, Textures[i]);
-				Mesh->DrawSubset(i);
-			}
+		if (::GetAsyncKeyState(VK_UP) & 0x8000f)
+			TheCamera.Pitch(1.0f, timeDelta);
 
-			//
-			// Draw bounding volume in blue and at 10% opacity
-			D3DMATERIAL9 blue = d3d::BLUE_MTRL;
-			blue.Diffuse.a = 0.10f; // 10% opacity
+		if (::GetAsyncKeyState(VK_DOWN) & 0x8000f)
+			TheCamera.Pitch(-1.0f, timeDelta);
 
-			Device->SetMaterial(&blue);
-			Device->SetTexture(0, 0); // disable texture
+		if (::GetAsyncKeyState(VK_LEFT) & 0x8000f)
+			TheCamera.Yaw(-1.0f, timeDelta);
 
-			Device->SetRenderState(D3DRS_ALPHABLENDENABLE, true);
-			Device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-			Device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+		if (::GetAsyncKeyState(VK_RIGHT) & 0x8000f)
+			TheCamera.Yaw(1.0f, timeDelta);
 
-			if (RenderBoundingSphere)
-				SphereMesh->DrawSubset(0);
-			else
-				BoxMesh->DrawSubset(0);
+		if (::GetAsyncKeyState('N') & 0x8000f)
+			TheCamera.Roll(1.0f, timeDelta);
 
-			Device->SetRenderState(D3DRS_ALPHABLENDENABLE, false);
+		if (::GetAsyncKeyState('M') & 0x8000f)
+			TheCamera.Roll(-1.0f, timeDelta);
 
-			Device->EndScene();
-			Device->Present(0, 0, 0, 0);
-		}
+		// Update the view matrix representing the cameras 
+		// new position/orientation.
 		
+		D3DXMATRIX V = TheCamera.GetViewMatrix();
+		Device->SetTransform(D3DTS_VIEW, &V);
+
+		//
+		// Render
+		//
+
+		Device->Clear(0, 0, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0x00000000, 1.0f, 0);
+		Device->BeginScene();
+
+		d3d::DrawBasicScene(Device, 1.0f);
+
+		Device->EndScene();
+		Device->Present(0, 0, 0, 0);
 	}
 }
 
@@ -317,6 +158,5 @@ void CStage::Free()
 {
 	CScene::Free();
 
-	
-	
+	d3d::DrawBasicScene(0, 0.f);
 }

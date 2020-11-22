@@ -96,6 +96,9 @@ namespace d3d
 		|| std::fabs(x - y) < (std::numeric_limits<T>::min)();
 	}
 
+	bool DrawBasicScene(
+		IDirect3DDevice9* device,
+		float scale);
 	
 	struct BoundingBox
 	{
@@ -120,6 +123,25 @@ namespace d3d
 		_vector _center{ 0,0,0 } ;
 		float _radius { 0 } ;
 	};
+
+	struct Vertex
+	{
+		Vertex() {}
+		Vertex(float x, float y, float z,
+			float nx, float ny, float nz,
+			float u, float v)
+		{
+			_x = x;  _y = y;  _z = z;
+			_nx = nx; _ny = ny; _nz = nz;
+			_u = u;  _v = v;
+		}
+		float _x, _y, _z;
+		float _nx, _ny, _nz;
+		float _u, _v;
+
+		static const DWORD FVF ;
+	};
+	
  }
 
 
