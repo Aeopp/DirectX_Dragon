@@ -2,8 +2,8 @@
 
 #ifndef __CLIENT_DEFINE_H__
 
-#define WINCX 800
-#define WINCY 600
+#define WINCX 1600
+#define WINCY 900
 
 
 

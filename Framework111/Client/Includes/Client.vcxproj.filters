@@ -65,6 +65,7 @@
       <Filter>Custom</Filter>
     </ClInclude>
     <ClInclude Include="Terrain.h" />
+    <ClInclude Include="pSystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Client.cpp">
@@ -93,6 +94,7 @@
       <Filter>Custom</Filter>
     </ClCompile>
     <ClCompile Include="Terrain.cpp" />
+    <ClCompile Include="pSystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Client.ico">

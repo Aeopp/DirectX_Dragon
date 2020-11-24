@@ -10,7 +10,6 @@
 #include <tchar.h>
 #include <D3D9.h>
 
-
 // Font creation flags
 #define D3DFONT_BOLD        0x0001
 #define D3DFONT_ITALIC      0x0002
@@ -21,9 +20,6 @@
 #define D3DFONT_CENTERED_Y  0x0002
 #define D3DFONT_TWOSIDED    0x0004
 #define D3DFONT_FILTERED    0x0008
-
-
-
 
 //-----------------------------------------------------------------------------
 // Name: class CD3DFont
@@ -70,10 +66,6 @@ public:
     CD3DFont( const TCHAR* strFontName, DWORD dwHeight, DWORD dwFlags=0L );
     ~CD3DFont();
 };
-
-
-
-
 #endif
 
 
