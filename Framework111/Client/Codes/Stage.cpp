@@ -25,14 +25,15 @@ const DWORD Vertex::FVF = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1;
 struct TerrainVertex
 {
 	_vector Location;
-	_vector Normal;
-	
+	D3DCOLOR _Color;
+//	_vector Normal;
 	static const DWORD FVF;
 };
 
-const DWORD TerrainVertex::FVF = 
-D3DFVF_XYZ | 
-D3DFVF_NORMAL;
+const DWORD TerrainVertex::FVF =
+D3DFVF_XYZ |
+D3DFVF_DIFFUSE;
+//D3DFVF_NORMAL;
 #pragma endregion Declare
 
 
@@ -168,14 +169,6 @@ void CStage::Initialize() & noexcept
 		1.f, 1000.f);
 	Device->SetTransform(D3DTS_PROJECTION, &proj);
 
-	_Mtrl = d3d::WHITE_MTRL;
-	
-	_Light.Type = D3DLIGHT_DIRECTIONAL;
-	_Light.Direction = { 0,-1,0 };
-	//_Light.Attenuation0 = 1;
-	_Light.Diffuse = { 1,1,1 ,1};
-	_Light.Specular = { 1,1,1,1 };
-	//_Light.Diffuse =
 
 
 #pragma region TerrainVertexCalc
@@ -191,10 +184,10 @@ void CStage::Initialize() & noexcept
 	constexpr DWORD IdxCount = (XNum - 1) * (ZNum - 1) * 6;
 	const _vector TerrainNormal = { 0,-1,0 };
 	const _vector Correction = { Width / 2.f,0,Height / 2.f };
-	D3DXCOLOR XLeftColor = D3DXCOLOR{ 1.f,1.f,1.f,1.f };
-	D3DXCOLOR XRightColor = D3DXCOLOR{ 0,  1,0,0.3f };
-	D3DXCOLOR ZNearColor = D3DXCOLOR{ 0,1.f,1.f,1.f };
-	D3DXCOLOR ZFarColor = D3DXCOLOR{ 1,1.f, 0.3f,0.3f };
+	D3DXCOLOR XLeftColor = D3DXCOLOR{ 124.f/255.f,181.f/255.f,255/255.f,1.f };
+	D3DXCOLOR XRightColor = D3DXCOLOR{ 255.f/255.f,  230 / 255.f,91.f / 255.f,0.25f };
+	D3DXCOLOR ZNearColor = D3DXCOLOR{ 112.f/255.f,255.f/255.f,121/255.f,1.f };
+	D3DXCOLOR ZFarColor = D3DXCOLOR{ 248.f / 255.f,63.f / 255.f, 255.f / 255.f,0.25f};
 	// TODO :: 여기까지가 매개변수 세팅 아래서부턴 알고리즘 루프
 
 	Device->CreateVertexBuffer
@@ -224,23 +217,33 @@ void CStage::Initialize() & noexcept
 		{
 			_vector Diff = { XAxisDiff * Col, 0 , ZAxisDiff * Row };
 			_vector _Vtx = Start + Diff;
-			_vector ToEnd = End - _Vtx;
-			D3DXVec3Normalize(&ToEnd, &ToEnd);
-			float lerp_x = ToEnd.x;
-			float lerp_z = ToEnd.z;
-			D3DXCOLOR lerp_x_color, lerp_z_color, _CurColor;
-			_vector CurToEnd = End - _Vtx;
+			DWORD Dia = Col + Row;
+			if (Dia > (ZNum * XNum) / 2)
+			{
+				Dia = (ZNum * XNum) -  Dia;
+			}
+			float lerp_x = (float)XNum / Dia;
+			float lerp_z = (float)ZNum/Dia;
+			D3DXCOLOR lerp_x_color, lerp_z_color, CurColor;
 			D3DXColorLerp(&lerp_x_color, &XLeftColor, &XRightColor, lerp_x);
 			D3DXColorLerp(&lerp_z_color, &ZNearColor, &ZFarColor, lerp_z);
-			D3DXCOLOR CurColor = { 1,0,0,1};
+			// X -> Z
+			_vector ToZ = _vector{ 0,0,(float)Dia } - _vector{ (float)Dia,0,0 };
+			float length = D3DXVec3Length(&ToZ);
+			_vector Cur = _vector{ (float)Col,0,(float)Row };
+			float s= length / D3DXVec3Length(&_vector{ Cur - _vector{ (float)Dia,0,0 } });
+			D3DXColorLerp(&CurColor, &XLeftColor,& ZNearColor, s);
 			if(Col ==XNum/2  &&Row== ZNum/2)
 			{
 				int Debug = 0;
 			}
+			
 			_Vtx -= Correction;
 			_TerrainVtxs[_TerrainVtxBufIdx].Location = _Vtx;			
-			_TerrainVtxs[_TerrainVtxBufIdx].Normal = TerrainNormal;
-			//_TerrainVtxs[_TerrainVtxBufIdx]._color = _CurColor;
+		//	_TerrainVtxs[_TerrainVtxBufIdx].Normal = TerrainNormal;
+			 D3DCOLOR _color = D3DCOLOR_ARGB( DWORD( CurColor.a*255.f), DWORD(CurColor.r * 255.f), DWORD(CurColor.g * 255.f), DWORD(CurColor.b * 255.f));
+			_TerrainVtxs[_TerrainVtxBufIdx]._Color = _color;
+			
 			// 색깔 넣기
 			_TerrainVtxBufIdx++;
 		}
@@ -307,11 +310,10 @@ void CStage::Render()&
 		TheCamera.Pitch(-Speed, 0.1f);
 	if (::GetAsyncKeyState(VK_DOWN) & 0x8000)
 		TheCamera.Pitch(Speed, 0.1f);
-	
-	if (::GetAsyncKeyState('3') & 0x8000)
-		Device->SetRenderState(D3DRS_NORMALIZENORMALS, false);
-	if (::GetAsyncKeyState('4') & 0x8000)
-		Device->SetRenderState(D3DRS_NORMALIZENORMALS, true);
+	if (::GetAsyncKeyState(VK_DOWN) & 0x8000)
+		TheCamera.Roll(Speed, 0.1f);
+	if (::GetAsyncKeyState(VK_DOWN) & 0x8000)
+		TheCamera.Roll(-Speed, 0.1f);
 	
 	static float Scale = 1.f;
 
@@ -320,39 +322,17 @@ void CStage::Render()&
 	if (::GetAsyncKeyState('2') & 0x8000)
 		Scale -= Speed;
 
-	int _ShadeMode = D3DSHADE_GOURAUD;
+	int _ShadeMode = D3DSHADE_FLAT;
 	
-	if (::GetAsyncKeyState('5') & 0x8000)
+	if (::GetAsyncKeyState('3') & 0x8000)
 		_ShadeMode = D3DSHADE_GOURAUD;
-	if (::GetAsyncKeyState('6') & 0x8000)
+	if (::GetAsyncKeyState('4') & 0x8000)
 		_ShadeMode = D3DSHADE_FLAT;
-
+	if (::GetAsyncKeyState('5') & 0x8000)
+		Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+	if (::GetAsyncKeyState('6') & 0x8000)
+		Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
 	constexpr double timeDelta = 1.f / 1000.f;
-
-	_matrix world;
-	D3DXMatrixIdentity(&world);
-	D3DXMatrixScaling(&world, Scale, Scale, Scale);
-	_matrix trans;
-	
-	D3DXMatrixTranslation(&trans, 0, Scale*1 +30, 0);
-	world *= trans;
-	
-	/*D3DXMatrixLookAtLH(&view,
-		&, &_vector{ 0,0,0 },
-		&_vector{ 0,1,0 });*/
-	_vector SpotDir = _vector{ 0,0,0 } - SpotLightLocation;
-	D3DXVec3Normalize(&SpotDir, &SpotDir);
-	D3DXCOLOR SpotColor = d3d::WHITE;
-
-	SpotLight = d3d::InitSpotLight(&TheCamera.GetLocation(), &
-		TheCamera.GetLook(), &SpotColor);
-	
-	SpotLight.Range = 1000.f;
-	_matrix rot;
-	static float SunAngle = 0.f;
-//	SunAngle += (Speed *0.01f)/ 3.141592f;
-	D3DXMatrixRotationZ(&rot, SunAngle);
-	D3DXVec3TransformCoord(&SpotLightLocation, &SpotLightLocation, &rot);
 	
 	Device->SetTransform(D3DTS_VIEW, &TheCamera.GetViewMatrix());
 	if (Device)
@@ -360,38 +340,21 @@ void CStage::Render()&
 		Device->Clear(0, 0, D3DCLEAR_TARGET
 			| D3DCLEAR_ZBUFFER, 0x0000ff, 1, 0);
 		Device->BeginScene();
-
-		Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
-		Device->SetRenderState(D3DRS_LIGHTING, true);
-	
-	/*	Device->SetLight(0, &_Light);
-		Device->LightEnable(0, true);*/
-
-		Device->SetLight(1, &SpotLight);
-		Device->LightEnable(1, true);
-		
-		Device->SetTransform(D3DTS_WORLD, &world);
-		Device->SetStreamSource(0, _GunVtxBuffer, 0, sizeof(Vertex));
-		D3DVERTEXBUFFER_DESC _VtxDesc;
-		Device->SetFVF(Vertex::FVF);
-		Device->SetMaterial(&_Mtrl);
-		_GunVtxBuffer->GetDesc(&_VtxDesc);
-		Device->DrawPrimitive(D3DPT_TRIANGLELIST, 0, PT_Count);
-
+		_matrix world;
 		D3DXMatrixIdentity(&world);
 		Device->SetTransform(D3DTS_WORLD, &world);
 		Device->SetStreamSource(0, _TerrainVtxBuffer, 0, sizeof(TerrainVertex));
 		Device->SetFVF(TerrainVertex::FVF);
 		Device->SetRenderState(D3DRS_SHADEMODE, _ShadeMode);
-		 //Device->SetMaterial(&_Mtrl);
-		Device->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+
+		
 		D3DVERTEXBUFFER_DESC _Dsc;
 		_TerrainVtxBuffer->GetDesc(&_Dsc);
 		DWORD VtxNum = _Dsc.Size / sizeof(TerrainVertex);
 		D3DINDEXBUFFER_DESC _IdxDsc;
 		_TerrainIdxBuffer->GetDesc(&_IdxDsc);
 		UINT PrimCount = _IdxDsc.Size / 3;
-		
+		Device->SetRenderState(D3DRS_LIGHTING, false);
 		Device->SetIndices(_TerrainIdxBuffer);
 		Device->DrawIndexedPrimitive(D3DPT_TRIANGLELIST,0,0, VtxNum,0 ,PrimCount);
 		
