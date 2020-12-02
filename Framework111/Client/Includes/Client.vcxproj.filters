@@ -109,4 +109,8 @@
       <Filter>98.Default</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="diffuse.hlsl" />
+    <FxCompile Include="toon.hlsl" />
+  </ItemGroup>
 </Project>
